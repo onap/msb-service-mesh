@@ -4,6 +4,7 @@
 *.so
 *.log
 config
+msb2pilot.exe
 
 # Folders
 _obj
