@@ -9,3 +9,5 @@ config
 _obj
 .idea
 .vscode
+vendor
+msb2pilot/pkg
