@@ -3,7 +3,6 @@
 *.a
 *.so
 *.log
-msb2pilot
 config
 
 # Folders
