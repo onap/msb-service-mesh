@@ -1,0 +1,12 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+*.log
+msb2pilot
+config
+
+# Folders
+_obj
+.idea
+.vscode
