@@ -56,7 +56,7 @@ func init() {
 	Log = logs.NewLogger()
 	Log.EnableFuncCallDepth(true)
 
-	cfg := getDefaultCfg()
+	cfg := getConfig()
 	setLogger(logs.AdapterConsole, &cfg.Console)
 	checkLogDir(cfg.File.FileName)
 	setLogger(logs.AdapterFile, &cfg.File)
@@ -94,6 +94,82 @@ func checkLogDir(path string) {
 	if err := os.MkdirAll(path[0:index], os.FileMode(perm)); err != nil {
 		return
 	}
+}
+
+func loadCustom() map[string]interface{} {
+	fullPath := filepath.Join("", cfgFileName)
+	fmt.Println("log config path is:" + fullPath)
+	config, err := util.Read(fullPath)
+	if err != nil {
+		fmt.Println("read config file error")
+		return nil
+	}
+
+	cfg := make(map[string]interface{})
+	err = util.UnmarshalYaml(config, &cfg)
+
+	if err != nil {
+		fmt.Printf("parse config file error: %s\n", err.Error())
+		return nil
+	}
+	return cfg
+}
+
+func getConfig() (result *Cfg) {
+	result = getDefaultCfg()
+
+	customs := loadCustom()
+
+	if customs == nil {
+		return
+	}
+
+	var console map[interface{}]interface{}
+	if cons, exist := customs["console"]; exist {
+		console = cons.(map[interface{}]interface{})
+
+		if levelstr, exist := console["level"]; exist {
+			if level, ok := loggerLevel[levelstr.(string)]; ok {
+				result.Console.Level = level
+			}
+		}
+	}
+	var file map[interface{}]interface{}
+	if f, exist := customs["file"]; !exist {
+		return
+	} else {
+		file = f.(map[interface{}]interface{})
+	}
+
+	if filename, e := file["filename"]; e {
+		result.File.FileName = filename.(string)
+	}
+	if levelstr, e := file["level"]; e {
+		if level, exist := loggerLevel[levelstr.(string)]; exist {
+			result.File.Level = level
+		}
+	}
+	if maxlines, e := file["maxlines"]; e {
+		result.File.MaxLines = maxlines.(int)
+	}
+
+	if maxsize, e := file["maxsize"]; e {
+		result.File.MaxSize = maxsize.(int) * 1024 * 1024
+	}
+
+	if daily, e := file["daily"]; e {
+		result.File.Daily = daily.(bool)
+	}
+
+	if maxdays, e := file["maxdays"]; e {
+		result.File.MaxDays = maxdays.(int)
+	}
+
+	if rotate, e := file["rotate"]; e {
+		result.File.Rotate = rotate.(bool)
+	}
+
+	return
 }
 
 func getDefaultCfg() *Cfg {
