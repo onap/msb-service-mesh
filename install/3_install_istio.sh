@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-wget https://github.com/istio/istio/releases/download/0.8.0/istio-0.8.0-linux.tar.gz
-tar -zxvf istio-0.8.0-linux.tar.gz
-rm -rf istio-0.8.0-linux.tar.gz
-sudo cp istio-0.8.0/bin/istioctl /usr/bin/
-rm -rf istio-0.8.0
+wget https://github.com/istio/istio/releases/download/1.0.0/istio-1.0.0-linux.tar.gz
+tar -zxvf istio-1.0.0-linux.tar.gz
+rm -rf istio-1.0.0-linux.tar.gz
+sudo cp istio-1.0.0/bin/istioctl /usr/bin/
+rm -rf istio-1.0.0
 
 kubectl apply -f istio.yaml
