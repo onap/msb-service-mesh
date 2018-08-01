@@ -58,10 +58,12 @@ func GetGoPath() []string {
 		return strings.Split(paths, ";")
 	} else if strings.Contains(paths, ":") { // linux
 		return strings.Split(paths, ":")
-	} else { // only one
+	} else if paths != "" { // only one
 		path := make([]string, 1, 1)
 		path[0] = paths
 		return path
+	} else {
+		return make([]string, 0, 0)
 	}
 }
 
