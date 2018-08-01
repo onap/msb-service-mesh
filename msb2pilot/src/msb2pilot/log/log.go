@@ -9,13 +9,14 @@
  * Contributors:
  *     ZTE - initial Project
  */
-
 package log
 
 import (
 	"encoding/json"
 	"fmt"
+	"msb2pilot/util"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -96,10 +97,8 @@ func checkLogDir(path string) {
 	}
 }
 
-func loadCustom() map[string]interface{} {
-	fullPath := filepath.Join("", cfgFileName)
-	fmt.Println("log config path is:" + fullPath)
-	config, err := util.Read(fullPath)
+func loadCustom(path string) map[string]interface{} {
+	config, err := util.Read(path)
 	if err != nil {
 		fmt.Println("read config file error")
 		return nil
@@ -117,8 +116,8 @@ func loadCustom() map[string]interface{} {
 
 func getConfig() (result *Cfg) {
 	result = getDefaultCfg()
-
-	customs := loadCustom()
+	path := filepath.Join(util.GetCfgPath(), cfgFileName)
+	customs := loadCustom(path)
 
 	if customs == nil {
 		return
