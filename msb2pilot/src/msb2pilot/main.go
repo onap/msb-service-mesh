@@ -12,15 +12,30 @@
 package main
 
 import (
-	_ "msb2pilot/consul"
+	"fmt"
+	"msb2pilot/consul"
 	"msb2pilot/log"
+	"msb2pilot/models"
 	_ "msb2pilot/routers"
+	"time"
 
 	"github.com/astaxie/beego"
 )
 
 func main() {
 	log.Log.Informational("**************** init msb2pilot ************************")
+	// start sync msb data
+	go syncConsulData()
 
 	beego.Run()
+}
+
+func syncConsulData() {
+	stop := make(chan struct{})
+	monitor := consul.NewConsulMonitor(nil, 20*time.Second, syncMsbData)
+	monitor.Start(stop)
+}
+
+func syncMsbData(newServices []*models.MsbService) {
+	fmt.Println(len(newServices), "services updated", time.Now())
 }
