@@ -12,33 +12,54 @@
 package consul
 
 import (
+	"msb2pilot/models"
+	"os"
 	"testing"
 )
 
 func TestSetConsulAddress(t *testing.T) {
 	cases := []struct {
-		path, want string
+		env, path, want string
 	}{
 		{
+			env:  "testEnv",
+			path: "",
+			want: `testEnv`,
+		},
+		{
+			env:  "",
 			path: cfgFilePath,
 			want: `http://127.0.0.1:8500`,
 		},
 		{
+			env:  "testEnvWithPath",
+			path: cfgFilePath,
+			want: `testEnvWithPath`,
+		},
+		{
+			env:  "",
 			path: ``,
 			want: `http://localhost:8500`,
 		},
 		{
+			env:  "",
 			path: `controller.go`,
 			want: `http://localhost:8500`,
 		},
 	}
 
+	oldEnv := os.Getenv(models.EnvConsulAddress)
+
 	for _, cas := range cases {
+		os.Setenv(models.EnvConsulAddress, cas.env)
+
 		res := getConsulAddress(cas.path)
 		if res != cas.want {
 			t.Errorf("getConsulAddress() => want %s, got %s", cas.want, res)
 		}
 	}
+
+	os.Setenv(models.EnvConsulAddress, oldEnv)
 }
 
 func TestLoadCfgInfo(t *testing.T) {
