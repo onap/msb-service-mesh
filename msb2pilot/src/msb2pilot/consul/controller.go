@@ -71,3 +71,21 @@ func loadCfgInfo(path string) (map[interface{}]interface{}, error) {
 	}
 	return result, nil
 }
+
+func GetServices() (map[string][]string, error) {
+	data, _, err := client.Catalog().Services(nil)
+
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func GetInstances(serviceName string) ([]*api.CatalogService, error) {
+	endpoints, _, err := client.Catalog().Service(serviceName, "", nil)
+	if err != nil {
+		log.Log.Error("can not get endpoints of ", serviceName)
+		return nil, err
+	}
+	return endpoints, nil
+}
