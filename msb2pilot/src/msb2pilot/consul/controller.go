@@ -13,7 +13,9 @@ package consul
 
 import (
 	"msb2pilot/log"
+	"msb2pilot/models"
 	"msb2pilot/util"
+	"os"
 	"path/filepath"
 
 	"github.com/hashicorp/consul/api"
@@ -44,6 +46,11 @@ func init() {
 }
 
 func getConsulAddress(path string) string {
+	res := os.Getenv(models.EnvConsulAddress)
+	if res != "" {
+		return res
+	}
+
 	cfg, err := loadCfgInfo(path)
 	if err != nil {
 		log.Log.Error("load consul config info error", err)
