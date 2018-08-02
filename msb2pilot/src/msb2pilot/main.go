@@ -12,6 +12,7 @@
 package main
 
 import (
+	_ "msb2pilot/consul"
 	"msb2pilot/log"
 	_ "msb2pilot/routers"
 
@@ -20,5 +21,6 @@ import (
 
 func main() {
 	log.Log.Informational("**************** init msb2pilot ************************")
+
 	beego.Run()
 }

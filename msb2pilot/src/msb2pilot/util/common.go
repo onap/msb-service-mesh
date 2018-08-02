@@ -19,6 +19,7 @@ import (
 
 const (
 	ConfigPath = "conf"
+	PathSep    = string(os.PathSeparator)
 )
 
 func GetCfgPath() string {

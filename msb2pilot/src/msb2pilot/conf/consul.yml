@@ -1,0 +1,2 @@
+# consul api address, default to be http://localhost:8500
+address: http://127.0.0.1:8500
