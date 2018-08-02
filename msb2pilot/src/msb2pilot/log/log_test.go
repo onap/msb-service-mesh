@@ -12,14 +12,13 @@
 package log
 
 import (
-	"apiroute/util"
+	"msb2pilot/util"
 	"os"
 	"strings"
 	"testing"
 )
 
 func TestCheckLogDir(t *testing.T) {
-	pathSep := string(os.PathSeparator)
 	cases := []struct {
 		path  string
 		exist bool
@@ -33,7 +32,7 @@ func TestCheckLogDir(t *testing.T) {
 			exist: false,
 		},
 		{
-			path:  `.` + pathSep + `test` + pathSep + `test.log`,
+			path:  `.` + util.PathSep + `test` + util.PathSep + `test.log`,
 			exist: true,
 		},
 	}
@@ -41,7 +40,7 @@ func TestCheckLogDir(t *testing.T) {
 	for _, cas := range cases {
 		checkLogDir(cas.path)
 
-		index := strings.LastIndex(cas.path, pathSep)
+		index := strings.LastIndex(cas.path, util.PathSep)
 		if cas.exist && !util.FileExists(cas.path[0:index]) {
 			t.Errorf("checkLogDir() => dir not exist, want %s", cas.path)
 		}
@@ -52,13 +51,12 @@ func TestCheckLogDir(t *testing.T) {
 }
 
 func TestLoadCustom(t *testing.T) {
-	pathSep := string(os.PathSeparator)
 	cases := []struct {
 		path string
 		want string
 	}{
 		{
-			path: `..` + pathSep + "conf" + pathSep + cfgFileName,
+			path: `..` + util.PathSep + "conf" + util.PathSep + cfgFileName,
 			want: "success",
 		},
 		{
