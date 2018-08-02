@@ -26,25 +26,25 @@ deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 sudo apt-get update
 
-read -p "Install kubelet (y/n)?" -n1 choice
+read -p "Install kubelet (y/n)?" choice
 case "$choice" in
   y|Y ) sudo apt-get install -y kubelet=1.11.1-00;;
 esac
 printf "\n"
 
-read -p "Install kubeadm (y/n)?" -n1 choice
+read -p "Install kubeadm (y/n)?" choice
 case "$choice" in
   y|Y ) sudo apt-get install -y kubeadm=1.11.1-00;;
 esac
 printf "\n"
 
-read -p "Install kubectl (y/n)?" -n1 choice
+read -p "Install kubectl (y/n)?" choice
 case "$choice" in
   y|Y ) sudo apt-get install -y kubectl=1.11.1-00;;
 esac
 printf "\n"
 
-read -p "Install helm (y/n)?" -n1 choice
+read -p "Install helm (y/n)?" choice
 case "$choice" in
   y|Y )
     wget https://storage.googleapis.com/kubernetes-helm/helm-v2.8.2-linux-amd64.tar.gz
