@@ -1,0 +1,14 @@
+apiVersion: v1
+clusters:
+- cluster:
+    server: http://10.74.148.106:28003
+  name: istio
+contexts:
+- context:
+    cluster: istio
+    user: ""
+  name: istio
+current-context: istio
+kind: Config
+preferences: {}
+users: []
