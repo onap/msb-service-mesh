@@ -13,4 +13,5 @@ package models
 
 const (
 	EnvConsulAddress = "ConsulAddress" //http://localhost:8500
+	EnvK8sAddress    = "K8sAddress"
 )
