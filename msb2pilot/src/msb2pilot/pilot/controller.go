@@ -30,6 +30,38 @@ var (
 	configPath = filepath.Join(util.GetCfgPath(), "k8s.yml")
 )
 
+const (
+	OperationCreate Operation = "create"
+	OperationUpdate Operation = "update"
+	OperationDelete Operation = "delete"
+)
+
+/**
+* if the input param is a json file, then the json configs should be independent objects not a array. For example:
+  [{}, {}] is error. {} {} is right
+*/
+func ParseParam(input string) ([]model.Config, error) {
+	configs, _, err := crd.ParseInputs(input)
+
+	return configs, err
+}
+
+func Save(operation Operation, configs []model.Config) []*model.Config {
+	failConfigs := make([]*model.Config, 0, len(configs))
+	for _, rule := range configs {
+		rule.Namespace = "default"
+		var rev string
+		var err error
+		if rev, err = operate(operation, &rule); err != nil {
+			failConfigs = append(failConfigs, &rule)
+			log.Log.Error("failed to "+string(operation)+"routerule", err)
+		}
+
+		log.Log.Informational("%s config %v at revision %v \n", operation, rule.Key(), rev)
+	}
+	return failConfigs
+}
+
 func init() {
 	updateK8sAddress(configPath)
 
@@ -103,4 +135,58 @@ func List(typ, namespace string) ([]model.Config, error) {
 		return nil, err
 	}
 	return client.List(proto.Type, namespace)
+}
+
+func Create(config *model.Config) (string, error) {
+	return client.Create(*config)
+}
+
+func Delete(typ, namespace, name string) error {
+	proto, err := protoSchema(typ)
+	if err != nil {
+		return err
+	}
+
+	return client.Delete(proto.Type, name, namespace)
+}
+
+func Update(config *model.Config) (string, error) {
+	if config.ResourceVersion == "" {
+		current, exists := client.Get(config.Type, config.Name, config.Namespace)
+		if exists {
+			config.ResourceVersion = current.ResourceVersion
+		}
+	}
+	return client.Update(*config)
+}
+
+func operate(operation Operation, config *model.Config) (string, error) {
+	switch operation {
+	case OperationCreate:
+		return client.Create(*config)
+	case OperationDelete:
+		return "", client.Delete(config.Type, config.Name, config.Namespace)
+	case OperationUpdate:
+		return Update(config)
+	default:
+		return "", errors.New("operation[" + string(operation) + "] not supported")
+	}
+}
+
+func ConvertConfig(config model.Config) crd.IstioObject {
+	schema, exists := client.ConfigDescriptor().GetByType(config.Type)
+	if !exists {
+		log.Log.Error("Unkown kind for ", config.Name)
+		return nil
+	}
+
+	obj, err := crd.ConvertConfig(schema, config)
+	if err != nil {
+		log.Log.Error("could not decode ", config.Name, err)
+
+		return nil
+	}
+
+	return obj
+
 }
