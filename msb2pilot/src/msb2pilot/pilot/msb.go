@@ -35,9 +35,24 @@ func SyncMsbData(newServices []*models.MsbService) {
 	log.Log.Debug("sync msb rewrite rule to pilot")
 	createServices, updateServices, deleteServices := compareServices(cachedServices, newServices)
 
-	log.Log.Debug("SyncMsbData: ", len(createServices), len(updateServices), len(deleteServices))
+	saveService(OperationCreate, createServices)
+	saveService(OperationUpdate, updateServices)
+	saveService(OperationDelete, deleteServices)
 
 	cachedServices = newServices
+}
+
+func saveService(operation Operation, services []*models.MsbService) {
+	if len(services) == 0 {
+		return
+	}
+	configs, err := parseServiceToConfig(services)
+	if err != nil {
+		log.Log.Error("param parse error", err)
+		return
+	}
+	fails := Save(operation, configs)
+	log.Log.Debug("%d services need to %s, %d fails. \n", len(services), operation, len(fails))
 }
 
 func compareServices(oldServices, newServices []*models.MsbService) (createServices, updateServices, deleteServices []*models.MsbService) {
