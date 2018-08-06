@@ -11,8 +11,24 @@
  */
 package pilot
 
+import (
+	"bytes"
+	"msb2pilot/log"
+	"msb2pilot/models"
+	"msb2pilot/msb"
+	"os"
+	"regexp"
+	"strings"
+
+	istioModel "istio.io/istio/pilot/pkg/model"
+)
+
 var (
 	cachedServices []*models.MsbService
+)
+
+const (
+	routerulePrefix = "msbcustom."
 )
 
 func SyncMsbData(newServices []*models.MsbService) {
@@ -57,4 +73,96 @@ func toServiceMap(services []*models.MsbService) map[string]*models.MsbService {
 	}
 
 	return serviceMap
+}
+
+func parseServiceToConfig(services []*models.MsbService) ([]istioModel.Config, error) {
+	publishServices := getPublishServiceMap()
+	apiGateway := os.Getenv(models.EnvApiGatewayName)
+	var buf bytes.Buffer
+	for _, service := range services {
+		if publishService, exist := publishServices[getPublishServiceKey(service)]; exist {
+
+			if service.ConsulLabels.BaseInfo != nil {
+				rule := createRouteRule(apiGateway, publishService.PublishUrl, service.ServiceName, service.ConsulLabels.BaseInfo.Url)
+				buf.WriteString(rule)
+			}
+		}
+	}
+	return ParseParam(buf.String())
+}
+
+func getPublishServiceKey(svc *models.MsbService) string {
+	res := svc.ServiceName
+
+	if svc.ConsulLabels.BaseInfo != nil {
+		res += svc.ConsulLabels.BaseInfo.Version
+	}
+
+	if svc.ConsulLabels.NameSpace != nil {
+		res += svc.ConsulLabels.NameSpace.NameSpace
+	}
+
+	return res
+}
+
+func getPublishServiceMap() map[string]*models.PublishService {
+	publishServices := msb.GetAllPublishServices()
+
+	res := make(map[string]*models.PublishService)
+
+	for _, svc := range publishServices {
+		key := svc.ServiceName + svc.Version + svc.NameSpace
+		res[key] = svc
+	}
+
+	return res
+}
+
+func createRouteRule(sourceService, sourcePath, targetService, targetPath string) string {
+	if sourcePath == "" {
+		sourcePath = "/"
+	}
+	if targetPath == "" {
+		targetPath = "/"
+	}
+	// rule name must consist of lower case alphanuberic charactoers, '-' or '.'. and must start and end with an alphanumberic charactore
+	r := regexp.MustCompile("[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*")
+	strs := r.FindAllString(targetService, -1)
+	name := routerulePrefix + strings.Join(strs, "")
+	name = strings.ToLower(name)
+
+	rule := `{
+"apiVersion": "config.istio.io/v1alpha2",
+"kind": "RouteRule",
+"metadata": {
+  "name": "` + name + `"
+},
+"spec": {
+  "destination":{
+    "name":"` + sourceService + `"
+  },
+  "match":{
+    "request":{
+      "headers": {
+        "uri": {
+          "prefix": "` + sourcePath + `"
+        }
+      }
+    }
+  },
+  "rewrite": {
+    "uri": "` + targetPath + `"
+  },
+  "route":[
+    {
+      "destination":{
+        "name":"` + targetService + `"
+      }
+    }
+  ]
+}
+}
+
+`
+	return rule
 }
