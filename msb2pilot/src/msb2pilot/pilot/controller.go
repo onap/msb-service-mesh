@@ -14,6 +14,10 @@ package pilot
 import (
 	"errors"
 	"msb2pilot/log"
+	"msb2pilot/models"
+	"msb2pilot/util"
+	"os"
+	"path/filepath"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -22,12 +26,15 @@ import (
 type Operation string
 
 var (
-	client *crd.Client
+	client     *crd.Client
+	configPath = filepath.Join(util.GetCfgPath(), "k8s.yml")
 )
 
 func init() {
+	updateK8sAddress(configPath)
+
 	var err error
-	client, err = crd.NewClient("k8s.yml", model.ConfigDescriptor{
+	client, err = crd.NewClient(configPath, model.ConfigDescriptor{
 		model.RouteRule,
 		model.DestinationPolicy,
 		model.DestinationRule,
@@ -36,6 +43,39 @@ func init() {
 	if err != nil {
 		log.Log.Error("fail to init crd", err)
 	}
+}
+
+func updateK8sAddress(path string) (string, error) {
+	addr := os.Getenv(models.EnvK8sAddress)
+	log.Log.Informational("k8s cfg address from env: ", addr)
+	if addr == "" {
+		return "", nil
+	}
+
+	// load cfg file
+	cfgstr, err := util.Read(path)
+	if err != nil {
+		log.Log.Error("file to load k8s config file", err)
+		return "", err
+	}
+
+	// update address
+	cfg := make(map[string]interface{})
+	util.UnmarshalYaml(cfgstr, &cfg)
+	if clusters, exist := cfg["clusters"]; exist {
+		clusterItem := clusters.([]interface{})[0]
+		cluster, _ := clusterItem.(map[interface{}]interface{})["cluster"]
+		cluster.(map[interface{}]interface{})["server"] = addr
+	}
+
+	updatedCfgstr, _ := util.MarshalYaml(cfg)
+
+	err = util.Write(path, updatedCfgstr, 0644)
+	if err != nil {
+		log.Log.Error("fail to write k8s cfg info to file", err)
+	}
+
+	return addr, err
 }
 
 func Get(typ, namespace, name string) (*model.Config, bool) {

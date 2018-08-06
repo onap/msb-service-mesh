@@ -13,6 +13,9 @@ package pilot
 
 import (
 	"fmt"
+	"msb2pilot/models"
+	"os"
+	"reflect"
 	"testing"
 )
 
@@ -23,4 +26,41 @@ func TestList(t *testing.T) {
 	} else {
 		fmt.Print(res)
 	}
+}
+
+func TestUpdateK8sAddress(t *testing.T) {
+	cases := []struct {
+		path, addr, want, err string
+	}{
+		{
+			path: "k8s.yml222",
+			addr: "filenoteexisttest",
+			want: "",
+			err:  "*os.PathError",
+		},
+		{
+			path: configPath,
+			addr: "",
+			want: "",
+			err:  "",
+		},
+		{
+			path: configPath,
+			addr: "k8stest",
+			want: "k8stest",
+			err:  "",
+		},
+	}
+
+	oldEnv := os.Getenv(models.EnvK8sAddress)
+	for _, cas := range cases {
+		os.Unsetenv(models.EnvK8sAddress)
+		os.Setenv(models.EnvK8sAddress, cas.addr)
+
+		got, err := updateK8sAddress(cas.path)
+		if got != cas.want || (err != nil && reflect.TypeOf(err).String() != cas.err) {
+			t.Errorf("updateK8sAddress(%s, %s) => got %s %v, want %s", cas.path, cas.addr, got, reflect.TypeOf(err), cas.want)
+		}
+	}
+	os.Setenv(models.EnvK8sAddress, oldEnv)
 }
