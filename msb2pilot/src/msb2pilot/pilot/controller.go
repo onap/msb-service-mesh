@@ -161,6 +161,7 @@ func Update(config *model.Config) (string, error) {
 }
 
 func operate(operation Operation, config *model.Config) (string, error) {
+	log.Log.Informational("%s %s %s %s", operation, config.Type, config.Name, config.Namespace)
 	switch operation {
 	case OperationCreate:
 		return client.Create(*config)
