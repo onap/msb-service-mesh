@@ -47,6 +47,7 @@ func SyncMsbData(newServices []*models.MsbService) {
 
 func saveService(operation Operation, services []*models.MsbService) {
 	if len(services) == 0 {
+		log.Log.Debug("0 services need to %s. \n", operation)
 		return
 	}
 	configs, err := parseServiceToConfig(services)
@@ -55,20 +56,21 @@ func saveService(operation Operation, services []*models.MsbService) {
 		return
 	}
 	fails := Save(operation, configs)
-	log.Log.Debug("%d services need to %s, %d fails. \n", len(services), operation, len(fails))
+	log.Log.Debug("%d services %d rules need to %s, %d fails. \n", len(services), len(configs), operation, len(fails))
 }
 
 func deleteAllMsbRules() {
 	log.Log.Informational("delete all msb rules")
-	configs, err := List("route-rule", "")
+	configs, err := List("routerules", "")
 
 	if err != nil {
+		log.Log.Error("fail to load rule list", err)
 		return
 	}
 
 	deleteList := msbRuleFilter(configs)
-
-	Save(OperationDelete, deleteList)
+	failed := Save(OperationDelete, deleteList)
+	log.Log.Debug("deleteAllMsbRules total %d rules, fail %d", len(configs), len(failed))
 }
 
 func msbRuleFilter(configs []istioModel.Config) []istioModel.Config {

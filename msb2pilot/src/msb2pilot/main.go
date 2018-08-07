@@ -12,10 +12,10 @@
 package main
 
 import (
-	"fmt"
 	"msb2pilot/consul"
 	"msb2pilot/log"
 	"msb2pilot/models"
+	"msb2pilot/pilot"
 	_ "msb2pilot/routers"
 	"time"
 
@@ -37,5 +37,7 @@ func syncConsulData() {
 }
 
 func syncMsbData(newServices []*models.MsbService) {
-	fmt.Println(len(newServices), "services updated", time.Now())
+	stop := make(chan struct{})
+	monitor := consul.NewConsulMonitor(nil, 20*time.Second, pilot.SyncMsbData)
+	monitor.Start(stop)
 }

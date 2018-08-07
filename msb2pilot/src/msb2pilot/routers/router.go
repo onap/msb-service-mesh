@@ -18,5 +18,6 @@ import (
 )
 
 func init() {
+	beego.Router("/routerule", &controllers.RouteRuleController{})
 	beego.Router("/", &controllers.MainController{})
 }
