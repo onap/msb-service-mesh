@@ -32,6 +32,9 @@ const (
 )
 
 func SyncMsbData(newServices []*models.MsbService) {
+	if len(cachedServices) == 0 {
+		deleteAllMsbRules()
+	}
 	log.Log.Debug("sync msb rewrite rule to pilot")
 	createServices, updateServices, deleteServices := compareServices(cachedServices, newServices)
 
@@ -53,6 +56,31 @@ func saveService(operation Operation, services []*models.MsbService) {
 	}
 	fails := Save(operation, configs)
 	log.Log.Debug("%d services need to %s, %d fails. \n", len(services), operation, len(fails))
+}
+
+func deleteAllMsbRules() {
+	log.Log.Informational("delete all msb rules")
+	configs, err := List("route-rule", "")
+
+	if err != nil {
+		return
+	}
+
+	deleteList := msbRuleFilter(configs)
+
+	Save(OperationDelete, deleteList)
+}
+
+func msbRuleFilter(configs []istioModel.Config) []istioModel.Config {
+	res := make([]istioModel.Config, 0, len(configs))
+
+	for _, config := range configs {
+		if strings.HasPrefix(config.Name, routerulePrefix) {
+			res = append(res, config)
+		}
+	}
+
+	return res
 }
 
 func compareServices(oldServices, newServices []*models.MsbService) (createServices, updateServices, deleteServices []*models.MsbService) {
