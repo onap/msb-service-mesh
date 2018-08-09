@@ -27,3 +27,11 @@
 [[constraint]]
   name = "github.com/smartystreets/goconvey"
   version = "1.6.3"
+  
+[[constraint]]
+  name = "istio.io/api"
+  revision = "1.0.0"
+
+[[constraint]]
+  name = "istio.io/istio"
+  revision = "1.0.0"
