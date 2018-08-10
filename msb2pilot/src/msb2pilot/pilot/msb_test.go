@@ -12,97 +12,112 @@
 package pilot
 
 import (
+	"msb2pilot/models"
 	"testing"
 )
 
-func TestCreateRouteRule(t *testing.T) {
+func TestParseServiceToConfig(t *testing.T) {
 	cases := []struct {
-		sService, sPath, tService, tPath, want string
+		services        []*models.MsbService
+		publishServices map[string]*models.PublishService
+		want            string
 	}{
-		{ // success demo
-			sService: "sservice",
-			sPath:    "/",
-			tService: "tservice",
-			tPath:    "/",
+		{
+			services:        []*models.MsbService{},
+			publishServices: map[string]*models.PublishService{},
 			want: `{
-"apiVersion": "config.istio.io/v1alpha2",
-"kind": "RouteRule",
-"metadata": {
-  "name": "msbcustom.tservice"
-},
-"spec": {
-  "destination":{
-    "name":"sservice"
-  },
-  "match":{
-    "request":{
-      "headers": {
-        "uri": {
-          "prefix": "/"
-        }
-      }
-    }
-  },
-  "rewrite": {
-    "uri": "/"
-  },
-  "route":[
-    {
-      "destination":{
-        "name":"tservice"
-      }
-    }
-  ]
-}
-}
-
-`,
+"apiVersion": "networking.istio.io/v1alpha3",
+"kind": "VirtualService",
+"metadata": {"name": "default-apigateway"},
+"spec": {"hosts":["tService"],"http":[]}
+}`,
 		},
-		{ // rule name must consist of lower case alphanuberic charactoers, '-' or '.'. and must start and end with an alphanumberic charactore
-			sService: "sservice",
-			sPath:    "/",
-			tService: "123ABCrule-name.test~!@#$%^&*()_+321",
-			tPath:    "/",
+		{
+			services: []*models.MsbService{
+				&models.MsbService{
+					ConsulLabels: &models.ConsulLabels{
+						NameSpace: &models.NameSpace{
+							NameSpace: "service1namespace",
+						},
+						BaseInfo: &models.BaseInfo{
+							Version: "service1v1",
+							Url:     "service1url",
+						},
+					},
+					ServiceName: "service1",
+				},
+				&models.MsbService{
+					ConsulLabels: &models.ConsulLabels{
+						NameSpace: &models.NameSpace{
+							NameSpace: "service2namespace",
+						},
+						BaseInfo: &models.BaseInfo{
+							Version: "service2v2",
+							Url:     "service2url",
+						},
+					},
+					ServiceName: "service2",
+				},
+			},
+			publishServices: map[string]*models.PublishService{
+				"service1service1v1service1namespace": &models.PublishService{
+					ServiceName: "service1",
+					Version:     "service1v1",
+					NameSpace:   "service1namespace",
+					PublishUrl:  "service1publishurl",
+				},
+				"service2service2v2service2namespace": &models.PublishService{
+					ServiceName: "service2",
+					Version:     "service2v2",
+					NameSpace:   "service2namespace",
+					PublishUrl:  "service2publihurl",
+				},
+			},
 			want: `{
-"apiVersion": "config.istio.io/v1alpha2",
-"kind": "RouteRule",
-"metadata": {
-  "name": "msbcustom.123rule-name.test321"
-},
-"spec": {
-  "destination":{
-    "name":"sservice"
-  },
-  "match":{
-    "request":{
-      "headers": {
-        "uri": {
-          "prefix": "/"
-        }
-      }
-    }
-  },
-  "rewrite": {
-    "uri": "/"
-  },
-  "route":[
-    {
-      "destination":{
-        "name":"123ABCrule-name.test~!@#$%^&*()_+321"
-      }
-    }
-  ]
-}
-}
-
-`,
+"apiVersion": "networking.istio.io/v1alpha3",
+"kind": "VirtualService",
+"metadata": {"name": "default-apigateway"},
+"spec": {"hosts":["tService"],"http":[{
+"match":{"uri": {"prefix": "service1publishurl"}},
+"rewrite": {"uri": "service1url"},
+"route": [{"destination": {"host": "service1"}}]
+},{
+"match":{"uri": {"prefix": "service2publihurl"}},
+"rewrite": {"uri": "service2url"},
+"route": [{"destination": {"host": "service2"}}]
+}]}
+}`,
 		},
 	}
 
 	for _, cas := range cases {
-		got := createRouteRule(cas.sService, cas.sPath, cas.tService, cas.tPath)
+		got := parseServiceToConfig("tService", cas.services, cas.publishServices)
 		if got != cas.want {
-			t.Errorf("createRouteRule(%s, %s, %s, %s) => got %s, want %s", cas.sService, cas.sPath, cas.tService, cas.tPath, got, cas.want)
+			t.Errorf("parseServiceToConfig() => got %s, want %s", got, cas.want)
 		}
 	}
 }
+
+//func TestCreateHttpRoute(t *testing.T) {
+//	cases := []struct {
+//		sPath, tService, tPath, want string
+//	}{
+//		{ // success demo
+//			sPath:    "/",
+//			tService: "tService",
+//			tPath:    "/",
+//			want: `{
+//"match":{"uri": {"prefix": "/"}},
+//"rewrite": {"uri": "/"},
+//"route": [{"destination": {"host": "tService"}}]
+//}`,
+//		},
+//	}
+
+//	for _, cas := range cases {
+//		got := createHttpRoute(cas.sPath, cas.tService, cas.tPath)
+//		if got != cas.want {
+//			t.Errorf("createHttpRoute(%s, %s, %s) => got %s, want %s", cas.sPath, cas.tService, cas.tPath, got, cas.want)
+//		}
+//	}
+//}
