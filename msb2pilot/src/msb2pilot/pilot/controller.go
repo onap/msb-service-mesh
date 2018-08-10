@@ -41,7 +41,7 @@ const (
   [{}, {}] is error. {} {} is right
 */
 func ParseParam(input string) ([]model.Config, error) {
-	configs, _, err := crd.ParseInputs(input)
+	configs, _, err := crd.ParseInputsWithoutValidation(input)
 
 	return configs, err
 }
@@ -66,11 +66,14 @@ func init() {
 	updateK8sAddress(configPath)
 
 	var err error
-	client, err = crd.NewClient(configPath, model.ConfigDescriptor{
-		model.RouteRule,
-		model.DestinationPolicy,
+	client, err = crd.NewClient(configPath, "", model.ConfigDescriptor{
+		model.VirtualService,
 		model.DestinationRule,
 	}, "")
+
+	if err = client.RegisterResources(); err != nil {
+		log.Log.Error("failed to register custom resources.", err)
+	}
 
 	if err != nil {
 		log.Log.Error("fail to init crd", err)

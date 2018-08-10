@@ -17,8 +17,6 @@ import (
 	"msb2pilot/models"
 	"msb2pilot/msb"
 	"os"
-	"regexp"
-	"strings"
 
 	istioModel "istio.io/istio/pilot/pkg/model"
 )
@@ -28,64 +26,59 @@ var (
 )
 
 const (
-	routerulePrefix = "msbcustom."
+	defaultVirtualService = "default-apigateway"
 )
 
 func SyncMsbData(newServices []*models.MsbService) {
-	if len(cachedServices) == 0 {
-		deleteAllMsbRules()
-	}
 	log.Log.Debug("sync msb rewrite rule to pilot")
-	createServices, updateServices, deleteServices := compareServices(cachedServices, newServices)
 
-	saveService(OperationCreate, createServices)
-	saveService(OperationUpdate, updateServices)
-	saveService(OperationDelete, deleteServices)
-
-	cachedServices = newServices
-}
-
-func saveService(operation Operation, services []*models.MsbService) {
-	if len(services) == 0 {
-		log.Log.Debug("0 services need to %s. \n", operation)
+	serviceUpdated := isUpdated(cachedServices, newServices)
+	if !serviceUpdated { // no service updated
 		return
 	}
-	configs, err := parseServiceToConfig(services)
+	log.Log.Debug("service updated")
+
+	apiGateway := os.Getenv(models.EnvApiGatewayName)
+	publishServices := getPublishServiceMap()
+	virtueServiceString := parseServiceToConfig(apiGateway, newServices, publishServices)
+	log.Log.Debug(virtueServiceString)
+	configs, err := ParseParam(virtueServiceString)
+
 	if err != nil {
 		log.Log.Error("param parse error", err)
 		return
 	}
-	fails := Save(operation, configs)
-	log.Log.Debug("%d services %d rules need to %s, %d fails. \n", len(services), len(configs), operation, len(fails))
+
+	updateVirtualService(newServices, configs)
 }
 
-func deleteAllMsbRules() {
-	log.Log.Informational("delete all msb rules")
-	configs, err := List("routerules", "")
-
-	if err != nil {
-		log.Log.Error("fail to load rule list", err)
-		return
-	}
-
-	deleteList := msbRuleFilter(configs)
-	failed := Save(OperationDelete, deleteList)
-	log.Log.Debug("deleteAllMsbRules total %d rules, fail %d", len(configs), len(failed))
-}
-
-func msbRuleFilter(configs []istioModel.Config) []istioModel.Config {
-	res := make([]istioModel.Config, 0, len(configs))
-
-	for _, config := range configs {
-		if strings.HasPrefix(config.Name, routerulePrefix) {
-			res = append(res, config)
+func updateVirtualService(newServices []*models.MsbService, configs []istioModel.Config) {
+	// if virtualservice exist, then delete it
+	config, exist := Get("virtualservice", "default", defaultVirtualService)
+	if exist {
+		log.Log.Informational("default virtual is: %v", config)
+		err := Delete("virtualservice", "default", defaultVirtualService)
+		if err != nil {
+			log.Log.Debug("failed to delete virture service %v \n", err)
+			return
 		}
 	}
 
-	return res
+	if len(newServices) == 0 {
+		cachedServices = newServices
+		return
+	}
+
+	fails := Save(OperationCreate, configs)
+	if len(fails) != 0 {
+		log.Log.Debug("failed to create virture service %v \n", fails)
+		return
+	} else {
+		cachedServices = newServices
+	}
 }
 
-func compareServices(oldServices, newServices []*models.MsbService) (createServices, updateServices, deleteServices []*models.MsbService) {
+func isUpdated(oldServices, newServices []*models.MsbService) bool {
 	oldServiceMap := toServiceMap(oldServices)
 	newServiceMap := toServiceMap(newServices)
 
@@ -93,21 +86,22 @@ func compareServices(oldServices, newServices []*models.MsbService) (createServi
 		if oldService, exist := oldServiceMap[key]; exist {
 			// service exist: check whether need to update
 			if oldService.ModifyIndex != newService.ModifyIndex {
-				updateServices = append(updateServices, newService)
+				// service updated
+				return true
 			}
 		} else {
-			// service not exist: add
-			createServices = append(createServices, newService)
+			// old service not exist: add
+			return true
 		}
 
 		delete(oldServiceMap, key)
 	}
 
-	for _, service := range oldServiceMap {
-		deleteServices = append(deleteServices, service)
+	if len(oldServiceMap) != 0 { // some service has been deleted
+		return true
 	}
 
-	return
+	return false
 }
 
 func toServiceMap(services []*models.MsbService) map[string]*models.MsbService {
@@ -120,20 +114,39 @@ func toServiceMap(services []*models.MsbService) map[string]*models.MsbService {
 	return serviceMap
 }
 
-func parseServiceToConfig(services []*models.MsbService) ([]istioModel.Config, error) {
-	publishServices := getPublishServiceMap()
-	apiGateway := os.Getenv(models.EnvApiGatewayName)
+func parseServiceToConfig(host string, services []*models.MsbService, publishServices map[string]*models.PublishService) string {
+	httpRoutes := getAllHttpRoute(services, publishServices)
+
+	rule := `{
+"apiVersion": "networking.istio.io/v1alpha3",
+"kind": "VirtualService",
+"metadata": {"name": "` + defaultVirtualService + `"},
+"spec": {"hosts":["` + host + `"],"http":[` + httpRoutes + `]}
+}`
+
+	return rule
+}
+
+func getAllHttpRoute(services []*models.MsbService, publishServices map[string]*models.PublishService) string {
 	var buf bytes.Buffer
+	hasPre := false
 	for _, service := range services {
 		if publishService, exist := publishServices[getPublishServiceKey(service)]; exist {
 
 			if service.ConsulLabels.BaseInfo != nil {
-				rule := createRouteRule(apiGateway, publishService.PublishUrl, service.ServiceName, service.ConsulLabels.BaseInfo.Url)
+				if hasPre {
+					buf.WriteString(",")
+				}
+
+				rule := createHttpRoute(publishService.PublishUrl, service.ServiceName, service.ConsulLabels.BaseInfo.Url)
 				buf.WriteString(rule)
+
+				hasPre = true
 			}
 		}
 	}
-	return ParseParam(buf.String())
+
+	return buf.String()
 }
 
 func getPublishServiceKey(svc *models.MsbService) string {
@@ -163,51 +176,118 @@ func getPublishServiceMap() map[string]*models.PublishService {
 	return res
 }
 
-func createRouteRule(sourceService, sourcePath, targetService, targetPath string) string {
+//func createRouteRule(sourceService, sourcePath, targetService, targetPath string) string {
+//	if sourcePath == "" {
+//		sourcePath = "/"
+//	}
+//	if targetPath == "" {
+//		targetPath = "/"
+//	}
+//	// rule name must consist of lower case alphanuberic charactoers, '-' or '.'. and must start and end with an alphanumberic charactore
+//	r := regexp.MustCompile("[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*")
+//	strs := r.FindAllString(targetService, -1)
+//	name := routerulePrefix + strings.Join(strs, "")
+//	name = strings.ToLower(name)
+
+//	rule := `{
+//"apiVersion": "config.istio.io/v1alpha2",
+//"kind": "RouteRule",
+//"metadata": {
+//  "name": "` + name + `"
+//},
+//"spec": {
+//  "destination":{
+//    "name":"` + sourceService + `"
+//  },
+//  "match":{
+//    "request":{
+//      "headers": {
+//        "uri": {
+//          "prefix": "` + sourcePath + `"
+//        }
+//      }
+//    }
+//  },
+//  "rewrite": {
+//    "uri": "` + targetPath + `"
+//  },
+//  "route":[
+//    {
+//      "destination":{
+//        "name":"` + targetService + `"
+//      }
+//    }
+//  ]
+//}
+//}
+
+//`
+//	return rule
+//}
+
+//func createRouteRule(sourceService, sourcePath, targetService, targetPath string) string {
+//	if sourcePath == "" {
+//		sourcePath = "/"
+//	}
+//	if targetPath == "" {
+//		targetPath = "/"
+//	}
+
+//	rule := `
+//apiVersion: networking.istio.io/v1alpha3
+//kind: VirtualService
+//metadata:
+//  name: default-apigateway
+//spec:
+//  hosts:
+//  - reviews
+//  http:
+//  - match:
+//    - headers:
+//        end-user:
+//          exact: jason
+//    route:
+//    - destination:
+//        host: reviews
+//  - route:
+//    - destination:
+//        host: reviews
+//	`
+//	return rule
+//}
+
+func createHttpRoute(sourcePath, targetHost, targetPath string) string {
+	//	- match:
+	//    - uri:
+	//        prefix: /ratings
+	//    rewrite:
+	//      uri: /v1/bookRatings
+	//    route:
+	//    - destination:
+	//        host: ratings.prod.svc.cluster.local
+	//        subset: v1
+
 	if sourcePath == "" {
 		sourcePath = "/"
 	}
 	if targetPath == "" {
 		targetPath = "/"
 	}
-	// rule name must consist of lower case alphanuberic charactoers, '-' or '.'. and must start and end with an alphanumberic charactore
-	r := regexp.MustCompile("[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*")
-	strs := r.FindAllString(targetService, -1)
-	name := routerulePrefix + strings.Join(strs, "")
-	name = strings.ToLower(name)
 
-	rule := `{
-"apiVersion": "config.istio.io/v1alpha2",
-"kind": "RouteRule",
-"metadata": {
-  "name": "` + name + `"
-},
-"spec": {
-  "destination":{
-    "name":"` + sourceService + `"
-  },
-  "match":{
-    "request":{
-      "headers": {
-        "uri": {
-          "prefix": "` + sourcePath + `"
-        }
-      }
-    }
-  },
-  "rewrite": {
-    "uri": "` + targetPath + `"
-  },
-  "route":[
-    {
-      "destination":{
-        "name":"` + targetService + `"
-      }
-    }
-  ]
-}
+	httpRoute := `{
+"match":[{"uri": {"prefix": "` + sourcePath + `"}}],
+"rewrite": {"uri": "` + targetPath + `"},
+"route": [` + createDestinationWeight(targetHost) + `]
+}`
+
+	return httpRoute
 }
 
-`
-	return rule
+func createDestinationWeight(targetHost string) string {
+	//	destination:
+	//     host: reviews.prod.svc.cluster.local
+	//     subset: v2
+	//  weight: 25
+
+	return `{"destination": {"host": "` + targetHost + `"}}`
 }
