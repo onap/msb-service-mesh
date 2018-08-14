@@ -63,10 +63,14 @@ func Save(operation Operation, configs []model.Config) []*model.Config {
 }
 
 func init() {
-	updateK8sAddress(configPath)
+	var k8sConfigPath string
+	k8sAddr, _ := updateK8sAddress(configPath)
+	if k8sAddr != "" {
+		k8sConfigPath = configPath
+	}
 
 	var err error
-	client, err = crd.NewClient(configPath, "", model.ConfigDescriptor{
+	client, err = crd.NewClient(k8sConfigPath, "", model.ConfigDescriptor{
 		model.VirtualService,
 		model.DestinationRule,
 	}, "")
