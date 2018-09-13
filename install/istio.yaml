@@ -595,7 +595,7 @@ metadata:
     istio: sidecar-injector
 data:
   config: |-
-    policy: disabled
+    policy: enabled
     template: |-
       initContainers:
       - name: istio-init
