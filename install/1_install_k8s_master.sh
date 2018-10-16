@@ -68,12 +68,12 @@ printf "\n"
 read -p "Install helm (y/n)?" choice
 case "$choice" in
   y|Y )
-    wget https://storage.googleapis.com/kubernetes-helm/helm-v2.8.2-linux-amd64.tar.gz
-    tar -zxvf helm-v2.8.2-linux-amd64.tar.gz
+    wget https://storage.googleapis.com/kubernetes-helm/helm-v2.9.1-linux-amd64.tar.gz
+    tar -zxvf helm-v2.9.1-linux-amd64.tar.gz
     chmod o+x linux-amd64/helm
     sudo mv linux-amd64/helm /usr/local/bin/helm
     rm -rf linux-amd64
-    rm -rf helm-v2.8.2-linux-amd64.tar.gz
+    rm -rf helm-v2.9.1-linux-amd64.tar.gz
 
     kubectl create -f helm_service_account.yaml
     helm init --service-account tiller
