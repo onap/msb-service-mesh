@@ -1,0 +1,9 @@
+Code-Review+1: Jinquan Ni <ni.jinquan@zte.com.cn>
+Code-Review+2: Zhaoxing Meng <meng.zhaoxing1@zte.com.cn>
+Verified+1: Zhaoxing Meng <meng.zhaoxing1@zte.com.cn>
+Verified+1: LF Jenkins CI <releng+lf-jobbuilder@linuxfoundation.org>
+Submitted-by: Zhaoxing Meng <meng.zhaoxing1@zte.com.cn>
+Submitted-at: Tue, 30 Mar 2021 09:42:28 +0000
+Reviewed-on: https://gerrit.onap.org/r/c/msb/service-mesh/+/116521
+Project: msb/service-mesh
+Branch: refs/heads/master
